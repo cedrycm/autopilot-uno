@@ -3,8 +3,18 @@
 #ifndef detector_h
 #define detector_h
 
-#include <stdint.h>
-#include <math.h>
+#ifdef NATIVE
+// include common file for the project in native env for gcc compiler
+#include <cstdint>
+#include <cstdio>
+#include <cmath>
+#endif
+
+#ifdef ARDUINO
+// include common file for the project in native env for arduino compiler
+#include <Arduino.h>
+#endif
+
 #include <CircularBuffer.h>
 #include <LinkedList.h>
 
@@ -27,7 +37,7 @@ typedef struct
 class DetectorController
 {
 private:
-  CircularBuffer<uint8_t*, 5> lidar_buffer;
+  CircularBuffer<uint8_t *, 5> lidar_buffer;
 
   LinkedList<uint8_t> avg_samples;
 
@@ -54,7 +64,7 @@ public:
 
   void clr(); //delete after testing
 
-  void interpret_lidar( uint8_t (&lidar_samples)[31], Measurements *closest_object);
+  void interpret_lidar(uint8_t (&lidar_samples)[31], Measurements *closest_object);
 
   void avoid_collision();
 };

@@ -4,7 +4,15 @@
 #ifndef telem_struct_h
 #define telem_struct_h
 
+#ifdef NATIVE
+// include common file for the project in native env for gcc compiler
+#include <cstdint>
+#endif
+
+#ifdef ARDUINO
+// include common file for the project in native env for arduino compiler
 #include <Arduino.h>
+#endif
 
 typedef struct
 {

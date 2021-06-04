@@ -8,7 +8,18 @@
 #define degreesToRadians(angleDegrees) (angleDegrees * PI / 180.0)
 #define radiansToDegrees(angleRadians) (angleRadians * 180.0 / PI)
 
+#ifdef NATIVE
+// include common file for the project in native env for gcc compiler
+#include <cstdint> 
+#include <cstdio>
+#include <cmath>
+#endif
+
+#ifdef ARDUINO
+// include common file for the project in native env for arduino compiler
 #include <Arduino.h>
+#endif
+
 #include "controller_structs.h"
 
 class SpeedController

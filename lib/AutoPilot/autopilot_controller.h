@@ -11,9 +11,18 @@
 #define VEHICLE_DROP_THRESHOLD 30.0
 #define ABS_AVOIDANCE_ANGLE 3.0
 
-#include <stdint.h>
-#include <math.h>
-#include <string.h>
+#ifdef NATIVE
+// include common file for the project in native env for gcc compiler
+#include <cstdint>
+#include <cstdio>
+#include <cmath>
+#include <cstring>
+#endif
+
+#ifdef ARDUINO
+// include common file for the project in native env for arduino compiler
+#include <Arduino.h>
+#endif
 
 #include "detector.h"
 #include "speed_controller.h"
