@@ -7,7 +7,7 @@ int PackageController::check_for_target(int v_x_sum, int v_y_sum, float theta, f
   float target_y = distance * cos(degreesToRadians(theta));
   bool in_range = PackageController::contains(target_x, target_y, v_x_sum * PACKAGE_DROP_TIME, v_y_sum * PACKAGE_DROP_TIME);
 
-  if ((0 < time_elapsed <= 500) || (!in_range))
+  if (((0 < time_elapsed)&&(time_elapsed <= TIMEOUT)) || (!in_range))
   {
     return 0;
   }

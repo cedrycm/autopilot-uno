@@ -3,16 +3,12 @@
 #ifndef speed_controller_h
 #define speed_controller_h
 
-#define PI 3.14159265
-
-#define degreesToRadians(angleDegrees) (angleDegrees * PI / 180.0)
-#define radiansToDegrees(angleRadians) (angleRadians * 180.0 / PI)
-
 #ifdef NATIVE
 // include common file for the project in native env for gcc compiler
-#include <cstdint> 
+#include <cstdint>
 #include <cstdio>
 #include <cmath>
+#define PI 3.14159265
 #endif
 
 #ifdef ARDUINO
@@ -21,6 +17,9 @@
 #endif
 
 #include "controller_structs.h"
+
+#define degreesToRadians(angleDegrees) (angleDegrees * PI / 180.0)
+#define radiansToDegrees(angleRadians) (angleRadians * 180.0 / PI)
 
 class SpeedController
 {

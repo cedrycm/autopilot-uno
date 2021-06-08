@@ -1,6 +1,6 @@
 #include "autopilot_controller.h"
 
-int AutoPilot::send_receive_data(char *buffer, size_t telem_size, char *cmd_buff, size_t cmd_size)
+int AutoPilot::send_receive_data(unsigned char *buffer, size_t telem_size, unsigned char *cmd_buff, size_t cmd_size)
 {
 
     //check if buffer size is the same size as Telemetry struct
@@ -8,6 +8,7 @@ int AutoPilot::send_receive_data(char *buffer, size_t telem_size, char *cmd_buff
     {
         memcpy(&telemetry, buffer, telem_size);
     }
+
 
     AutoPilot::interpret_data();
 
@@ -19,12 +20,24 @@ int AutoPilot::send_receive_data(char *buffer, size_t telem_size, char *cmd_buff
     return 0;
 }
 
+int AutoPilot::send_receive_data(Telemetry *rx_telemetry, Command *tx_command)
+{
+    AutoPilot::telemetry.timestamp = rx_telemetry->timestamp;
+    AutoPilot::telemetry.recovery_x_error = rx_telemetry->recovery_x_error;
+    AutoPilot::telemetry.wind_vector_x = rx_telemetry->wind_vector_x;
+    AutoPilot::telemetry.wind_vector_y = rx_telemetry->wind_vector_y;
+    AutoPilot::telemetry.recovery_y_error = rx_telemetry->recovery_y_error;
+    AutoPilot::telemetry.lidar_samples[31] = rx_telemetry->lidar_samples[31];
+
+    AutoPilot::interpret_data();
+
+    tx_command->drop_package = AutoPilot::command.drop_package;
+    tx_command->lateral_airspeed = AutoPilot::command.lateral_airspeed;
+    return 0;
+}
+
 void AutoPilot::interpret_data()
 {
-    int drop_status;
-    float v_y;
-    float d_1_2, d_x, d_y, theta;
-
     detector_ctrl.interpret_lidar(telemetry.lidar_samples, &target_obj);
 
     if ((abs(AutoPilot::telemetry.recovery_x_error) < DELIVERY_ZONE) || (statusFlag == CtrlFlags::RECOVER))
@@ -35,7 +48,7 @@ void AutoPilot::interpret_data()
     }
     else if (target_obj.obstacle_distance < VEHICLE_AVOID_THRESHOLD && (abs(target_obj.theta_edge1) < ABS_AVOIDANCE_ANGLE || abs(target_obj.theta_edge2) < ABS_AVOIDANCE_ANGLE))
     {
-        statusFlag == CtrlFlags::AVOID_COLLISION;
+        statusFlag = CtrlFlags::AVOID_COLLISION;
 
         speed_ctrl.update_airspeed(&zip_speed, telemetry.wind_vector_x, telemetry.wind_vector_y,
                                    target_obj.theta_edge1, target_obj.theta_edge2);
@@ -70,4 +83,3 @@ void AutoPilot::interpret_data()
 size_t AutoPilot::PackedTelemSize() const { return sizeof(Telemetry); }
 
 size_t AutoPilot::PackedCmdSize() const { return sizeof(Command); }
-

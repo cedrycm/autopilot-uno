@@ -5,11 +5,9 @@ void DetectorController::interpret_lidar(uint8_t (&lidar_samples)[31], Measureme
   // LidarSamples temp = {lidar_samples};
 
   //   temp.sample_set = ;
-
   DetectorController::lidar_buffer.push(lidar_samples);
-  DetectorController::flatten();
 
-  Measurements object = {0};
+  DetectorController::flatten();
 
   DetectorController::get_closest_object(closest_object);
 
@@ -19,7 +17,7 @@ void DetectorController::interpret_lidar(uint8_t (&lidar_samples)[31], Measureme
 void DetectorController::flatten() //flatten buffer of samples to one avg of previous entries (max of 5)
 {
 
-  uint8_t avg_distance, last, group_idx;
+  uint8_t last;
 
   for (decltype(lidar_buffer)::index_t i = 0; i < DetectorController::lidar_buffer.size(); i++) //iterate through buffer arrays
   {
@@ -29,8 +27,6 @@ void DetectorController::flatten() //flatten buffer of samples to one avg of pre
 
       if (i == (DetectorController::lidar_buffer.size() - 1)) //if outside loop is on the last list - average total and group into objects
       {
-        size_t group_idx = num_groups - 1;
-
         DetectorController::avg_samples[j] = (uint8_t)(avg_samples[j] / DetectorController::lidar_buffer.size());
 
         if (j == 0) //if first entry in list - create first group entry
@@ -76,7 +72,7 @@ void DetectorController::get_closest_object(Measurements *closest_object) //Fill
   obstacle_distance = MAX_LIDAR_DISTANCE;
   delivery_distance = MAX_LIDAR_DISTANCE;
 
-  for (int i = 0; i < DetectorController::num_groups; i++)
+  for (int i = 0; (unsigned)i < DetectorController::num_groups; i++)
   {
     int idx_first = DetectorController::groups[i].start_index;
     int idx_last = DetectorController::groups[i].end_index;

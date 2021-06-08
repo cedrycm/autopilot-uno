@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cmath>
+#define PI 3.14159265
 #endif
 
 #ifdef ARDUINO
@@ -20,7 +21,6 @@
 
 #include "controller_structs.h"
 
-#define PI 3.14159265
 #define TREE_RADIUS 3.0
 #define DELIVERY_SITE_LIDAR_DIAMETER 1.0
 #define MAX_LIDAR_DISTANCE 255

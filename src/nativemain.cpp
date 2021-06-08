@@ -1,6 +1,5 @@
 
-#ifdef UNIT_TEST /*Ignore source code for testing */
-#endif
+#ifdef NATIVE /*Ignore source code for testing */
 
 #include <stdio.h>
 #include <iostream>
@@ -11,8 +10,8 @@ int main()
 {
   AutoPilot pilot;
 
-  char buffer[44];
-  char cmd_buff[8];
+  unsigned char buffer[44];
+  unsigned char cmd_buff[8];
 
   //uint8_t numray[31] = {0, 1, 2, 3, 4, 10, 0, 2, 3, 4, 3, 10, 12, 12, 0, 0, 3, 1, 3, 4, 5, 0, 0, 0, 0, 0, 1, 3, 4, 5, 5};
 
@@ -41,3 +40,5 @@ int main()
   }
   return 0;
 }
+
+#endif

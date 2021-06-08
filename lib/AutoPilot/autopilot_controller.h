@@ -4,13 +4,6 @@
 #ifndef autopilot_controller_h
 #define autopilot_controller_h
 
-#define VEHICLE_AIRSPEED_X 30.0
-#define LIDAR_DELIVERY_DIAMETER 1.5
-#define DELIVERY_ZONE 100.0
-#define VEHICLE_AVOID_THRESHOLD 50.0
-#define VEHICLE_DROP_THRESHOLD 30.0
-#define ABS_AVOIDANCE_ANGLE 3.0
-
 #ifdef NATIVE
 // include common file for the project in native env for gcc compiler
 #include <cstdint>
@@ -29,6 +22,13 @@
 #include "package_controller.h"
 #include "controller_structs.h"
 #include "controller_enums.h"
+
+#define VEHICLE_AIRSPEED_X 30.0
+#define LIDAR_DELIVERY_DIAMETER 1.5
+#define DELIVERY_ZONE 100.0
+#define VEHICLE_AVOID_THRESHOLD 50.0
+#define VEHICLE_DROP_THRESHOLD 30.0
+#define ABS_AVOIDANCE_ANGLE 3.0
 
 class AutoPilot
 {
@@ -55,7 +55,9 @@ public:
         statusFlag = CtrlFlags::APPROACH_TARGET;
         zip_speed.v_x = VEHICLE_AIRSPEED_X;
     }
-    int send_receive_data(char *buffer, size_t telem_size, char *cmd_buff, size_t cmd_size);
+    int send_receive_data(unsigned char *buffer, size_t telem_size, unsigned char *cmd_buff, size_t cmd_size);
+
+    int send_receive_data(Telemetry *rx_telemetry, Command *tx_command);
 };
 
 #endif
