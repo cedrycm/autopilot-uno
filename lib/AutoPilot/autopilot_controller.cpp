@@ -29,6 +29,7 @@ int AutoPilot::send_receive_data(Telemetry *rx_telemetry, Command *tx_command)
     // AutoPilot::telemetry.recovery_y_error = rx_telemetry->recovery_y_error;
     // AutoPilot::telemetry.lidar_samples[31] = rx_telemetry->lidar_samples[31];
     memcpy(&telemetry, &rx_telemetry, sizeof(Telemetry));
+    detector_ctrl.push(rx_telemetry);
 
     AutoPilot::interpret_data();
 

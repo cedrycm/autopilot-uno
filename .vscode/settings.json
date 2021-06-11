@@ -39,6 +39,7 @@
     "utility": "cpp",
     "initializer_list": "cpp",
     "stdexcept": "cpp",
-    "cstring": "cpp"
+    "cstring": "cpp",
+    "*.tpp": "cpp"
   }
 }

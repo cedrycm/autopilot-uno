@@ -29,7 +29,7 @@
 #define degreesToRadians(angleDegrees) (angleDegrees * PI / 180.0)
 #define radiansToDegrees(angleRadians) (angleRadians * 180.0 / PI)
 
- typedef struct
+typedef struct
 {
   uint8_t sample_set[31];
 } LidarSamples;
@@ -37,12 +37,10 @@
 class DetectorController
 {
 private:
-  CircularBuffer<uint8_t *, 5> lidar_buffer;
+  CircularBuffer<Telemetry *, 5> buffer;
 
   LinkedList<uint8_t> avg_samples;
 
-  LidarSamples samples[5];
-  
   void flatten();
 
   void clear_groups();
@@ -69,6 +67,8 @@ public:
   void interpret_lidar(uint8_t (&lidar_samples)[31], Measurements *closest_object);
 
   void avoid_collision();
+
+  void push(Telemetry *telemetry);
 };
 
 #endif
