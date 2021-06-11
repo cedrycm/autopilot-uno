@@ -22,12 +22,13 @@ int AutoPilot::send_receive_data(unsigned char *buffer, size_t telem_size, unsig
 
 int AutoPilot::send_receive_data(Telemetry *rx_telemetry, Command *tx_command)
 {
-    AutoPilot::telemetry.timestamp = rx_telemetry->timestamp;
-    AutoPilot::telemetry.recovery_x_error = rx_telemetry->recovery_x_error;
-    AutoPilot::telemetry.wind_vector_x = rx_telemetry->wind_vector_x;
-    AutoPilot::telemetry.wind_vector_y = rx_telemetry->wind_vector_y;
-    AutoPilot::telemetry.recovery_y_error = rx_telemetry->recovery_y_error;
-    AutoPilot::telemetry.lidar_samples[31] = rx_telemetry->lidar_samples[31];
+    // AutoPilot::telemetry.timestamp = rx_telemetry->timestamp;
+    // AutoPilot::telemetry.recovery_x_error = rx_telemetry->recovery_x_error;
+    // AutoPilot::telemetry.wind_vector_x = rx_telemetry->wind_vector_x;
+    // AutoPilot::telemetry.wind_vector_y = rx_telemetry->wind_vector_y;
+    // AutoPilot::telemetry.recovery_y_error = rx_telemetry->recovery_y_error;
+    // AutoPilot::telemetry.lidar_samples[31] = rx_telemetry->lidar_samples[31];
+    memcpy(&telemetry, &rx_telemetry, sizeof(Telemetry));
 
     AutoPilot::interpret_data();
 

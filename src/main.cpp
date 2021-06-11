@@ -1,6 +1,47 @@
 #include <Arduino.h>
 #include "autopilot_controller.h"
 
+float ReverseFloat(const float inFloat)
+{
+  float retVal;
+  char *floatToConvert = (char *)&inFloat;
+  char *returnFloat = (char *)&retVal;
+
+  // swap the bytes into a temporary buffer
+  returnFloat[0] = floatToConvert[3];
+  returnFloat[1] = floatToConvert[2];
+  returnFloat[2] = floatToConvert[1];
+  returnFloat[3] = floatToConvert[0];
+
+  return retVal;
+}
+
+void ReverseArr(uint8_t arr[], int start, int end)
+{
+  uint8_t temp;
+  while (start < end)
+  {
+    temp = arr[start];
+    arr[start] = arr[end];
+    arr[end] = temp;
+    start++;
+    end--;
+  }
+}
+
+uint8_t calc_checksum(void *data, uint8_t len)
+{
+  uint8_t checksum = 0;
+  uint8_t *addr;
+  for (addr = (uint8_t *)data; addr < (data + len); addr++)
+  {
+    // xor all the bytes
+    checksum ^= *addr; // checksum = checksum xor value stored in addr
+  }
+  return checksum;
+}
+
+
 typedef struct
 {
   // send first
@@ -14,19 +55,8 @@ typedef struct
 
 Packet tx_packet;  // store packet to be sent
 Telemetry rx_data; // store received data
-AutoPilot pilot;
+AutoPilot pilot; //Pilot controller class 
 
-uint8_t calc_checksum(void *data, uint8_t len)
-{
-  uint8_t checksum = 0;
-  uint8_t *addr;
-  for (addr = (uint8_t *)data; addr < (data + len); addr++)
-  {
-    // xor all the bytes
-    checksum ^= *addr; // checksum = checksum xor value stored in addr
-  }
-  return checksum;
-}
 
 bool readPacket()
 {
@@ -61,6 +91,7 @@ bool readPacket()
     if (Serial.readBytes((uint8_t *)&rx_data, payload_length) != payload_length)
     {
       // cannot receive required length within timeout
+
       return false;
     }
   }
@@ -74,6 +105,7 @@ bool readPacket()
 
   if (calc_checksum(&rx_data, payload_length) != checksum)
   {
+
     // checksum error
     return false;
   }
@@ -92,6 +124,12 @@ bool readPacket()
   }
 
   // Yeah! a valid packet is received
+  rx_data.timestamp = __builtin_bswap16(rx_data.timestamp);
+  rx_data.recovery_x_error = __builtin_bswap16(rx_data.recovery_x_error);
+  rx_data.wind_vector_x = ReverseFloat(rx_data.wind_vector_x);
+  rx_data.wind_vector_y = ReverseFloat(rx_data.wind_vector_y);
+
+  ReverseArr(rx_data.lidar_samples, 0, sizeof(rx_data.lidar_samples) / sizeof(uint8_t) - 1);
 
   return true;
 }
@@ -99,15 +137,7 @@ bool readPacket()
 void send_packet()
 {
   tx_packet.len = sizeof(tx_packet.tx_data);
-  // tx_packet.tx_data.drop_package = 1;
-  // tx_packet.tx_data.lateral_airspeed = (float)12.0;
-  tx_packet.checksum = calc_checksum(&tx_packet.tx_data, tx_packet.len);
-
-  // tx_test.len = sizeof(rx_data);
-  // tx_test.tx_data = rx_data;
-  // tx_test.checksum = calc_checksum(&tx_test.tx_data, tx_packet.len);
-
-  // Serial.write((char *)&tx_test, sizeof(tx_test));
+  tx_packet.checksum = calc_checksum(&tx_packet.tx_data, tx_packet.len); //produce new checksum
 
   Serial.write((char *)&tx_packet, sizeof(tx_packet)); // send the packet
 }
@@ -138,21 +168,6 @@ void loop()
     pilot.send_receive_data(&rx_data, &(tx_packet.tx_data));
     // valid packet received, pack new data in new packet and send it out
     // print it out in many formats:
-    Serial.println(rx_data.timestamp); // print as an ASCII-encoded decimal - same as "DEC"
-    Serial.println("\t");              // prints a tab
-
-    Serial.println(rx_data.wind_vector_x, 1); // print as an ASCII-encoded decimal
-    Serial.println("\t");                     // prints a tab
-
-    Serial.println(rx_data.wind_vector_y, 1); // print as an ASCII-encoded decimal
-    Serial.println("\t");                     // prints a tab
-
-    Serial.println(tx_packet.tx_data.drop_package); // print as an ASCII-encoded decimal - same as "DEC"
-    Serial.println("\t");                           // prints a tab
-
-    Serial.println(tx_packet.tx_data.lateral_airspeed, 1); // print as an ASCII-encoded decimal
-    Serial.println("\t");                                  // prints a tab
-
     send_packet();
   }
 }

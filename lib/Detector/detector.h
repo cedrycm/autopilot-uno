@@ -29,9 +29,9 @@
 #define degreesToRadians(angleDegrees) (angleDegrees * PI / 180.0)
 #define radiansToDegrees(angleRadians) (angleRadians * 180.0 / PI)
 
-typedef struct
+ typedef struct
 {
-  uint8_t *sample_set;
+  uint8_t sample_set[31];
 } LidarSamples;
 
 class DetectorController
@@ -41,6 +41,8 @@ private:
 
   LinkedList<uint8_t> avg_samples;
 
+  LidarSamples samples[5];
+  
   void flatten();
 
   void clear_groups();

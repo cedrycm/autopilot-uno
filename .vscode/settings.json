@@ -38,6 +38,7 @@
     "system_error": "cpp",
     "utility": "cpp",
     "initializer_list": "cpp",
-    "stdexcept": "cpp"
+    "stdexcept": "cpp",
+    "cstring": "cpp"
   }
 }

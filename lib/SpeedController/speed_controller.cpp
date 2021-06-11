@@ -31,7 +31,7 @@ void SpeedController::update_airspeed(Airspeed *zip_speed, float v_x_wind, float
 
 void SpeedController::update_airspeed(Airspeed *zip_speed, float v_x_wind, float v_y_wind, int16_t d_x, int8_t d_y)
 {
-  float theta = atan(d_x / d_y);
+  float theta = d_y != 0 ? atan(d_x / d_y) : 0;
 
   zip_speed->v_y = ((zip_speed->v_x + v_x_wind) * atan(theta)) - v_y_wind;
 }

@@ -16,12 +16,12 @@
 
 typedef struct
 {
-  uint16_t timestamp;
-  int16_t recovery_x_error;
-  float wind_vector_x;
-  float wind_vector_y;
-  int8_t recovery_y_error;
-  uint8_t lidar_samples[31];
+  uint16_t timestamp;        //time stamp from current sim
+  int16_t recovery_x_error;  //proximal distance to recovery
+  float wind_vector_x;       //wind velocity x
+  float wind_vector_y;       //wind velocity y
+  int8_t recovery_y_error;   //lateral distance to recovery
+  uint8_t lidar_samples[31]; //lidar sample array
 } Telemetry;
 
 typedef struct
@@ -30,6 +30,17 @@ typedef struct
   uint8_t drop_package;
   uint8_t padding[3];
 } Command;
+
+typedef struct
+{
+  // send first
+  uint16_t start_seq; // 0x0210, 0x10 will be sent first
+  uint8_t len;        // length of payload
+  Command tx_data;
+  uint8_t checksum;
+  uint16_t end_seq; // 0x0310, 0x10 will be sent first
+  // send last
+} Packet;
 
 typedef struct
 {
