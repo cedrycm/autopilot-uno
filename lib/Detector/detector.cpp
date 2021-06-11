@@ -2,11 +2,6 @@
 
 void DetectorController::interpret_lidar(uint8_t (&lidar_samples)[31], Measurements *closest_object)
 {
-  // LidarSamples temp = {lidar_samples};
-
-  //   temp.sample_set = ;
-  DetectorController::lidar_buffer.push(lidar_samples);
-
   DetectorController::flatten();
 
   DetectorController::get_closest_object(closest_object);
@@ -19,15 +14,15 @@ void DetectorController::flatten() //flatten buffer of samples to one avg of pre
 
   uint8_t last;
 
-  for (decltype(lidar_buffer)::index_t i = 0; i < DetectorController::lidar_buffer.size(); i++) //iterate through buffer arrays
+  for (decltype(buffer)::index_t i = 0; i < DetectorController::buffer.size(); i++) //iterate through buffer arrays
   {
     for (int j = 0; j < 31; j++) //iterate through list elements
     {
-      DetectorController::avg_samples[j] += DetectorController::lidar_buffer[i][j]; //add lidar value to appropiate index slot
+      DetectorController::avg_samples[j] += DetectorController::buffer[i]->lidar_samples[j]; //add lidar value to appropiate index slot
 
-      if (i == (DetectorController::lidar_buffer.size() - 1)) //if outside loop is on the last list - average total and group into objects
+      if (i == (DetectorController::buffer.size() - 1)) //if outside loop is on the last list - average total and group into objects
       {
-        DetectorController::avg_samples[j] = (uint8_t)(avg_samples[j] / DetectorController::lidar_buffer.size());
+        DetectorController::avg_samples[j] = (uint8_t)(avg_samples[j] / DetectorController::buffer.size());
 
         if (j == 0) //if first entry in list - create first group entry
         {
@@ -148,4 +143,9 @@ void DetectorController::clear_groups() //Reset groups for next iteration
 void DetectorController::clr() //Reset groups for next iteration
 {
   DetectorController::clear_groups();
+}
+
+void DetectorController::push(Telemetry *telemetry)
+{
+  DetectorController::buffer.push(telemetry);
 }
