@@ -1,9 +1,10 @@
 enum CtrlFlags
 {
-    APPROACH_TARGET = 1,
-    AVOID_COLLISION = 2,
-    DELIVER_PACKAGE = 4,
-    RECOVER = 8,
+    SEARCH_DELIVERY_SITE = 1,
+    APPROACH_DELIVERY_SITE = 2,
+    AVOID_COLLISION = 4,
+    DELIVER_PACKAGE = 8,
+    RECOVER = 16,
 };
 
 inline CtrlFlags operator|(CtrlFlags a, CtrlFlags b)
