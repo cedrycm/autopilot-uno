@@ -31,7 +31,7 @@ typedef struct
   uint8_t padding[3];
 } Command;
 
-typedef struct
+typedef struct __attribute__((packed))
 {
   // send first
   uint16_t start_seq; // 0x0210, 0x10 will be sent first
