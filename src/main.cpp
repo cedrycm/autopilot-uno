@@ -22,10 +22,10 @@
 
 #define DELIVERY_ZONE 200 //recovery zone
 
-#define VEHICLE_AVOID_THRESHOLD 60.0 //max distance to engage collision avoidance
+#define VEHICLE_AVOID_THRESHOLD 40.0 //max distance to engage collision avoidance
 #define VEHICLE_DROP_THRESHOLD 40.0  //min distance to try for drop
 
-#define ABS_AVOIDANCE_ANGLE 5.0 //max angle range +/- 5deg to check for collision
+#define ABS_AVOIDANCE_ANGLE 3.9 //max angle range +/- 5deg to check for collision
 #define PACKAGE_DROP_TIME 0.5   //time for package to reach the ground
 #define DROP_TIMEOUT 750        //500ms before dropping
 
@@ -292,7 +292,7 @@ void GetClosestObject() //Fills euclidian measurements for objects in the lidar 
     int idx_first = groups[i].start_index;
     int idx_last = groups[i].end_index;
 
-    if (avg_samples[idx_first] != 0) //if a sample is non-zero
+    if (avg_samples[idx_first] != 0 && avg_samples[idx_last] != 0) //if a sample is non-zero
     {
       if (idx_first != idx_last)
       {
@@ -300,17 +300,19 @@ void GetClosestObject() //Fills euclidian measurements for objects in the lidar 
         EuclidValues(&current, idx_first, idx_last);
         int d_height = abs(avg_samples[idx_first] - avg_samples[idx_last]);
 
-        if (current.obstacle_diameter <= DELIVERY_SITE_LIDAR_DIAMETER && current.obstacle_distance < closest_target && d_height <= DELIVERY_SITE_LIDAR_DIAMETER / 2)
+        if (current.obstacle_diameter <= DELIVERY_SITE_LIDAR_DIAMETER && d_height <= DELIVERY_SITE_LIDAR_DIAMETER / 2 && current.obstacle_distance < closest_target)
         {
           //assign object as a target
           closest_target = current.obstacle_distance;
+
           target_object.delivery_distance = current.obstacle_distance;
           target_object.delivery_theta = current.theta_mid;
         }
-        else if (current.obstacle_diameter >= DELIVERY_SITE_LIDAR_DIAMETER && current.obstacle_distance < closest_obstacle)
+        else if ((current.obstacle_diameter > DELIVERY_SITE_LIDAR_DIAMETER || d_height > DELIVERY_SITE_LIDAR_DIAMETER / 2) && current.obstacle_distance < closest_obstacle)
         {
           //assign object as obstacle
-          closest_target = current.obstacle_distance;
+          closest_obstacle = current.obstacle_distance;
+
           target_object.obstacle_distance = current.obstacle_distance;
           target_object.obstacle_diameter = current.obstacle_diameter;
           target_object.theta_edge1 = current.theta_edge1;
@@ -322,8 +324,9 @@ void GetClosestObject() //Fills euclidian measurements for objects in the lidar 
       {
         //assign as target
         closest_target = current.obstacle_distance;
+
         target_object.delivery_distance = avg_samples[idx_first];
-        target_object.delivery_theta = (-1) * (idx_first) + 15;
+        target_object.delivery_theta = (-1) * (idx_first) + 15.0;
       }
     }
   }
@@ -343,12 +346,12 @@ void EuclidValues(Measurements *object, int idx_first, int idx_last) //Compute e
   x_2 = d_2 * cos(degreesToRadians(object->theta_edge2));
   y_2 = d_2 * sin(degreesToRadians(object->theta_edge2));
 
-  object->obstacle_diameter = sqrt(pow((x_1 - x_2), 2) + pow((y_1 - y_2), 2));
+  object->obstacle_diameter = ((x_1 - x_2) * (x_1 - x_2) + (y_1 - y_2) * (y_1 - y_2));
 
   m_x = (x_1 + x_2) / 2; //proximal distance
   m_y = (y_1 + y_2) / 2; //lateral distance
 
-  object->obstacle_distance = sqrt(pow(m_x, 2) + pow(m_y, 2));
+  object->obstacle_distance = (m_x * m_x + m_y * m_y);
   object->theta_mid = radiansToDegrees(atan(m_y / m_x));
 }
 
@@ -379,14 +382,13 @@ void InterpretData() //Updates airspeed and command telemetry according to contr
     }
     tx_packet.tx_data.drop_package = 0;
   }
-
-  else if (target_object.delivery_distance != 0) // && (abs(target_object.theta_edge1 < target_object.theta_mid) && abs(target_object.theta_mid) < target_object.theta_edge2))
+  else if (target_object.delivery_distance != 0)
   {
     UpdateAirspeed(&zip_speed, last_telem->wind_vector_x, last_telem->wind_vector_y,
                    target_object.delivery_theta);
-    statusFlag = target_object.delivery_distance <= VEHICLE_DROP_THRESHOLD ? CtrlFlags::DELIVER_PACKAGE : CtrlFlags::APPROACH_DELIVERY_SITE; //Approach Zip Delivery Site
+    statusFlag = (target_object.delivery_distance <= VEHICLE_DROP_THRESHOLD && abs(target_object.delivery_theta) < 14.0) ? CtrlFlags::DELIVER_PACKAGE : CtrlFlags::APPROACH_DELIVERY_SITE; //Approach Zip Delivery Site
 
-    if (statusFlag == CtrlFlags::DELIVER_PACKAGE && abs(target_object.delivery_theta) < 14.0)
+    if (statusFlag == CtrlFlags::DELIVER_PACKAGE)
     {
       float v_x_sum = zip_speed.v_x + last_telem->wind_vector_x;
       float v_y_sum = zip_speed.v_y + last_telem->wind_vector_y;
