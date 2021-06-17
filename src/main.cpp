@@ -20,9 +20,9 @@
 
 #define VEHICLE_AIRSPEED_X 30.0
 
-#define DELIVERY_ZONE 200 //recovery zone
+#define DELIVERY_ZONE 250 //recovery zone
 
-#define VEHICLE_AVOID_THRESHOLD 40.0 //max distance to engage collision avoidance
+#define VEHICLE_AVOID_THRESHOLD 55.0 //max distance to engage collision avoidance
 #define VEHICLE_DROP_THRESHOLD 40.0  //min distance to try for drop
 
 #define ABS_AVOIDANCE_ANGLE 3.9 //max angle range +/- 5deg to check for collision
@@ -286,6 +286,8 @@ void GetClosestObject() //Fills euclidian measurements for objects in the lidar 
   Measurements current = {0};
   float closest_obstacle = MAX_LIDAR_DISTANCE;
   float closest_target = MAX_LIDAR_DISTANCE;
+  float closest_target_angle = MAX_LIDAR_ANGLE;
+  float closest_obstacle_angle = MAX_LIDAR_ANGLE;
 
   for (int i = 0; (unsigned)i < num_groups; i++)
   {
@@ -300,7 +302,7 @@ void GetClosestObject() //Fills euclidian measurements for objects in the lidar 
         EuclidValues(&current, idx_first, idx_last);
         int d_height = abs(avg_samples[idx_first] - avg_samples[idx_last]);
 
-        if (current.obstacle_diameter <= DELIVERY_SITE_LIDAR_DIAMETER && d_height <= DELIVERY_SITE_LIDAR_DIAMETER / 2 && current.obstacle_distance < closest_target)
+        if ((current.obstacle_diameter <= DELIVERY_SITE_LIDAR_DIAMETER && d_height <= DELIVERY_SITE_LIDAR_DIAMETER / 2.0) && (current.obstacle_distance < closest_target && current.theta_mid < closest_target_angle))
         {
           //assign object as a target
           closest_target = current.obstacle_distance;
@@ -308,7 +310,7 @@ void GetClosestObject() //Fills euclidian measurements for objects in the lidar 
           target_object.delivery_distance = current.obstacle_distance;
           target_object.delivery_theta = current.theta_mid;
         }
-        else if ((current.obstacle_diameter > DELIVERY_SITE_LIDAR_DIAMETER || d_height > DELIVERY_SITE_LIDAR_DIAMETER / 2) && current.obstacle_distance < closest_obstacle)
+        else if ((current.obstacle_diameter > DELIVERY_SITE_LIDAR_DIAMETER || d_height > DELIVERY_SITE_LIDAR_DIAMETER / 2.0) && (current.obstacle_distance < closest_obstacle && current.theta_mid < closest_obstacle_angle))
         {
           //assign object as obstacle
           closest_obstacle = current.obstacle_distance;
@@ -320,13 +322,18 @@ void GetClosestObject() //Fills euclidian measurements for objects in the lidar 
           target_object.theta_mid = current.theta_mid;
         }
       }
-      else if (avg_samples[idx_first] < closest_target && current.obstacle_distance < closest_target)
+      else
       {
-        //assign as target
-        closest_target = current.obstacle_distance;
+        float theta = (-1) * (idx_first) + 15.0;
+        if (avg_samples[idx_first] < closest_target && theta < closest_target_angle)
+        {
+          //assign as target
+          closest_target = avg_samples[idx_first];
+          closest_target_angle = theta;
 
-        target_object.delivery_distance = avg_samples[idx_first];
-        target_object.delivery_theta = (-1) * (idx_first) + 15.0;
+          target_object.delivery_distance = avg_samples[idx_first];
+          target_object.delivery_theta = theta;
+        }
       }
     }
   }
@@ -335,23 +342,26 @@ void GetClosestObject() //Fills euclidian measurements for objects in the lidar 
 void EuclidValues(Measurements *object, int idx_first, int idx_last) //Compute euclidian values for objects
 {
   float d_1, d_2, x_1, x_2, y_1, y_2, m_x, m_y;
+
+  int theta_edge1 = (-1) * idx_first + 15;
+  int theta_edge2 = (-1) * idx_last + 15;
+
   d_1 = avg_samples[idx_first];
   d_2 = avg_samples[idx_last];
 
-  object->theta_edge1 = (-1) * idx_first + 15;
-  object->theta_edge2 = (-1) * idx_last + 15;
-  x_1 = d_1 * cos(degreesToRadians(object->theta_edge1));
-  y_1 = d_1 * sin(degreesToRadians(object->theta_edge1));
+  x_1 = d_1 * cos(degreesToRadians(theta_edge1));
+  y_1 = d_1 * sin(degreesToRadians(theta_edge1));
 
-  x_2 = d_2 * cos(degreesToRadians(object->theta_edge2));
-  y_2 = d_2 * sin(degreesToRadians(object->theta_edge2));
+  x_2 = d_2 * cos(degreesToRadians(theta_edge2));
+  y_2 = d_2 * sin(degreesToRadians(theta_edge2));
 
-  object->obstacle_diameter = ((x_1 - x_2) * (x_1 - x_2) + (y_1 - y_2) * (y_1 - y_2));
+  m_x = (x_1 + x_2) / 2.0; //proximal distance
+  m_y = (y_1 + y_2) / 2.0; //lateral distance
 
-  m_x = (x_1 + x_2) / 2; //proximal distance
-  m_y = (y_1 + y_2) / 2; //lateral distance
-
-  object->obstacle_distance = (m_x * m_x + m_y * m_y);
+  object->obstacle_diameter = sqrt((x_1 - x_2) * (x_1 - x_2) + (y_1 - y_2) * (y_1 - y_2));
+  object->obstacle_distance = sqrt(m_x * m_x + m_y * m_y);
+  object->theta_edge1 = theta_edge1;
+  object->theta_edge2 = theta_edge2;
   object->theta_mid = radiansToDegrees(atan(m_y / m_x));
 }
 
@@ -359,33 +369,44 @@ void InterpretData() //Updates airspeed and command telemetry according to contr
 {
   Telemetry *last_telem = telem_buffer.last(); //retrieve last data packet stored to buffer
 
-  if ((abs(last_telem->recovery_x_error) < DELIVERY_ZONE) || (statusFlag == CtrlFlags::RECOVER)) //update lateral velocity to head into recovery site
+  if (last_telem->recovery_x_error < DELIVERY_ZONE || statusFlag == CtrlFlags::RECOVER) //update lateral velocity to head into recovery site
   {
     statusFlag = CtrlFlags::RECOVER;
     UpdateAirspeed(&zip_speed, last_telem->wind_vector_x, last_telem->wind_vector_y,
                    last_telem->recovery_x_error, last_telem->recovery_y_error);
+
+    tx_packet.tx_data.lateral_airspeed = zip_speed.v_y;
+    tx_packet.tx_data.drop_package = 0;
   }
-  else if (target_object.obstacle_distance < VEHICLE_AVOID_THRESHOLD && (abs(target_object.theta_edge1) < ABS_AVOIDANCE_ANGLE || abs(target_object.theta_edge2) < ABS_AVOIDANCE_ANGLE)) //update lateraL velocity to avoid object
+  else if (target_object.obstacle_distance < VEHICLE_AVOID_THRESHOLD && abs(target_object.theta_mid) < ABS_AVOIDANCE_ANGLE) //update lateraL velocity to avoid object
   {
     statusFlag = CtrlFlags::AVOID_COLLISION;
-    tx_packet.tx_data.drop_package = 0;
 
     UpdateAvoidAirspeed(&zip_speed, last_telem->wind_vector_x, last_telem->wind_vector_y,
                         target_object.theta_edge1, target_object.theta_edge2);
-  }
-  else if (statusFlag == CtrlFlags::AVOID_COLLISION && avoid_count < 5) // if last flag was to avoid
-  {
-    //continue to clear away from trees for 5 loops (1/12th s) for clearance
-    if (++avoid_count == 5)
-    {
-      avoid_count = 0;
-    }
+
+    tx_packet.tx_data.lateral_airspeed = zip_speed.v_y;
     tx_packet.tx_data.drop_package = 0;
   }
-  else if (target_object.delivery_distance != 0)
+  else if (statusFlag == CtrlFlags::AVOID_COLLISION && avoid_count < 4) // if last flag was to avoid
+  {
+    //continue to clear away from trees for 5 loops (1/12th s) for clearance
+    if (avoid_count > 4)
+    {
+      avoid_count = 0;
+      statusFlag = CtrlFlags::SEARCH_DELIVERY_SITE;
+    }
+
+    tx_packet.tx_data.lateral_airspeed = zip_speed.v_y + (-1) * last_telem->wind_vector_y;
+    tx_packet.tx_data.drop_package = 0;
+
+    avoid_count++;
+  }
+  else if (target_object.delivery_distance != 0 && statusFlag != CtrlFlags::AVOID_COLLISION)
   {
     UpdateAirspeed(&zip_speed, last_telem->wind_vector_x, last_telem->wind_vector_y,
                    target_object.delivery_theta);
+
     statusFlag = (target_object.delivery_distance <= VEHICLE_DROP_THRESHOLD && abs(target_object.delivery_theta) < 14.0) ? CtrlFlags::DELIVER_PACKAGE : CtrlFlags::APPROACH_DELIVERY_SITE; //Approach Zip Delivery Site
 
     if (statusFlag == CtrlFlags::DELIVER_PACKAGE)
@@ -399,16 +420,17 @@ void InterpretData() //Updates airspeed and command telemetry according to contr
       zip_speed.v_y = zip_speed.v_y * 1.5;
       tx_packet.tx_data.drop_package = 0;
     }
+
+    tx_packet.tx_data.lateral_airspeed = zip_speed.v_y;
   }
   else
   {
     UpdateAirspeed(&zip_speed, last_telem->wind_vector_x, last_telem->wind_vector_y);
     statusFlag = CtrlFlags::SEARCH_DELIVERY_SITE;
 
+    tx_packet.tx_data.lateral_airspeed = zip_speed.v_y;
     tx_packet.tx_data.drop_package = 0;
   }
-
-  tx_packet.tx_data.lateral_airspeed = zip_speed.v_y;
 
   ClearGroups();
 }
