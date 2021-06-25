@@ -1,14 +1,27 @@
 #include <Arduino.h>
 #include <math.h>
-#include "main_header.h"
+#include <avr/pgmspace.h>
+#include <avr/interrupt.h>
+#include <Servo.h>
 
-//packet size definitions
+#include "main_header.h"
+#include "RoTV.h"
+
+//packet size definitions---------------------------------------------------------------
 #define TELEMETRY_SIZE 44
 #define COMMAND_SIZE 8
 #define PACKET_SIZE 50
 #define LIDAR_SAMPLE_SIZE 31
 
-//world measurements
+//servo definitions---------------------------------------------------------------------
+#define TRIM_DURATION 2                                          // compensation ticks to trim adjust for digitalWrite delays
+#define usToTicks(_us) ((clockCyclesPerMicrosecond() * _us) / 8) // converts microseconds to tick (assumes prescale of 8)
+#define MIN_PULSE_WIDTH 544                                      // the shortest pulse sent to a servo in microseconds
+#define MAX_PULSE_WIDTH 2400                                     // the longest pulse sent to a servo in microseconds
+#define DEFAULT_PULSE_WIDTH 1500                                 // default pulse width when servo is attached
+#define REFRESH_INTERVAL 20000                                   // minimum time to refresh servos in microseconds
+
+//world measurement definitions---------------------------------------------------------
 #define TREE_RADIUS 3.0
 
 #define DELIVERY_SITE_RADIUS 5.0
@@ -29,9 +42,22 @@
 #define PACKAGE_DROP_TIME 0.5   //time for package to reach the ground
 #define DROP_TIMEOUT 750        //500ms before dropping
 
-#define degreesToRadians(angleDegrees) (angleDegrees * PI / 180.0)
-#define radiansToDegrees(angleRadians) (angleRadians * 180.0 / PI)
+#define degreesToRadians(_angleDegrees) (_angleDegrees * PI / 180.0)
+#define radiansToDegrees(_angleRadians) (_angleRadians * 180.0 / PI)
 
+//Buzzer variables---------------------------------------------------------------
+static const uint8_t tonePin = 4; //set pwm output to digital pin 4
+uint16_t note_index = 0;          //index of note in the track
+int16_t duration_elapsed = 0;     //start of new note
+bool zip_launched = false;
+//Servo variables----------------------------------------------------------------
+bool moveRotor = false;
+static const uint8_t servoPin = 9; //set pwm output to digital pin 9
+unsigned int servoTicks;
+uint8_t oldSREG;
+
+Servo myServo;
+//---------------------------------------=----------------------------------------
 Packet tx_packet; // store packet to be sent
 //Telemetry rx_data; // store received data
 
@@ -65,9 +91,123 @@ void blink()
   }
 }
 
-void setup()
-{ // put your setup code here, to run once:
+void SetServo(int value)
+{
+  /* timer1 function
+  // value = map(value, -30, 30, MIN_PULSE_WIDTH, MAX_PULSE_WIDTH);
 
+  // value = value - TRIM_DURATION;
+  // value = usToTicks(value);
+
+  // oldSREG = SREG;
+
+  // moveRotor = true;
+  // servoTicks = value;
+
+  // TIMSK0 &= ~_BV(OCIE0A);  // disable timer 0 output compare interrupt
+  // TIMSK1 |= (1 << OCIE1A); // enable timer 1 compare interrupt */
+
+  //servo lib function
+  int angle = map(value, -30.0, 30.0, 0, 180); //map angle propotional to rotor angle
+
+  myServo.write(angle);
+}
+
+ISR(TIMER0_COMPA_vect)
+{ //timer0 interrupt 768Hz plays notes for Ride of the Valkyries
+  //generates pwm at frequency defined by MIDI of file for "Ride of the Valkyries"
+  //freq = (96 bpm * 480 ppq)/60 s
+  if (zip_launched)
+  {
+    if (duration_elapsed < 0 && note_index < Melody_Length)
+    {
+      note_index++;
+      uint16_t data = pgm_read_word((uint16_t *)&Melody[note_index]);
+      duration_elapsed = data >> 8;
+
+      if ((data & 0xF) == 0xF)
+      {
+        noTone(tonePin);
+        duration_elapsed--;
+      }
+      else
+      {
+        uint16_t Freq = pgm_read_word(&Freq8[data & 0xF]) / (1 << (8 - (data >> 4 & 0xF)));
+        tone(tonePin, Freq);
+        duration_elapsed--;
+      }
+    }
+    else if (note_index == Melody_Length)
+    {
+      note_index = 0;
+    }
+    else
+    {
+      duration_elapsed--;
+    }
+  }
+}
+
+// //SERVO INTERRUPT
+//#TODO: having issues with timer1 interrupt implementation raising too often and preventing tune from playing 
+// ISR(TIMER1_COMPA_vect)
+// {
+//   if (moveRotor)
+//   {
+//     digitalWrite(servoPin, LOW); //pulse low if refreshing
+
+//     OCR1A = TCNT1 + servoTicks; //set timer count flag
+//     digitalWrite(servoPin, HIGH);
+//   }
+//   else if (servoTicks > 0)
+//   {
+//     if (((unsigned)TCNT1) + 4 < usToTicks(REFRESH_INTERVAL)) // allow a few ticks to ensure the next OCR1A not missed
+//       OCR1A = (unsigned int)usToTicks(REFRESH_INTERVAL);
+//     else
+//       OCR1A = TCNT1 + 4; // at least REFRESH_INTERVAL has elapsed
+//     servoTicks = 0;
+//     moveRotor = false;
+//     TCNT1 = 0;
+
+//     SREG = oldSREG; //reset timer interrupts
+//   }
+// }
+
+void setup()
+{       
+   // put your setup code here, to run once:
+  cli(); //stop interrupts
+
+  //set timer0 interrupt at 768Hz
+  TCCR0A = 0; // set entire TCCR0A register to 0
+  TCCR0B = 0; // same for TCCR0B
+  TCNT0 = 0;  //initialize counter value to 0
+
+  // set compare match register for 768hz increments
+  OCR0A = 80; // = (16*10^6) / (768*256) - 1 (must be <256)
+  // turn on CTC mode
+  TCCR0A |= (1 << WGM01);
+  // Set CS02 bit for 256 prescaler
+  TCCR0B |= (1 << CS02);
+  // enable timer compare interrupt
+  TIMSK0 |= (1 << OCIE0A);
+
+  // //set timer1 interrupt at 1Hz
+  // TCCR1A = 0; // set entire TCCR1A register to 0
+  // TCCR1B = 0; // same for TCCR1B
+  // TCNT1 = 0;  //initialize counter value to 0
+
+  // // turn on CTC mode
+  // TCCR1B |= (1 << WGM12);
+  // // Set CS11 bit for 8 prescaler
+  // TCCR1B |= (1 << CS11);
+  // // enable timer compare interrupt
+  // TIMSK1 |= (1 << OCIE1A);
+  sei();
+
+  // SetServo(0);
+  myServo.attach(9);
+  myServo.write(90);
   pinMode(LED_BUILTIN, OUTPUT);
 
   Serial.begin(38400);
@@ -90,15 +230,17 @@ void setup()
   while (!Serial)
   {
     // wait until Serial is ready
+    zip_launched = false;
   }
+    
 }
 
 void loop()
 { // put your main code here, to run repeatedly:
-  //Telemetry *rx_data = &telemetry_array[telem_count];
+
   if (ReadPacket())
   {
-
+    zip_launched= true;
     telem_buffer.push(&telemetry_array[telem_count]); //add to bvuffer
 
     if (statusFlag != CtrlFlags::RECOVER) //if recovery has started no need to rely on lidar data
@@ -431,6 +573,9 @@ void InterpretData() //Updates airspeed and command telemetry according to contr
     tx_packet.tx_data.lateral_airspeed = zip_speed.v_y;
     tx_packet.tx_data.drop_package = 0;
   }
+
+  if(telem_count == 0) //update every 1/6th of a second to avoid jitteryness 
+    SetServo(int(zip_speed.v_y));
 
   ClearGroups();
 }
