@@ -80,17 +80,6 @@ int16_t drop_timestamp = 0;
 int telem_count = 0;
 int avoid_count = 0;
 
-void blink()
-{
-  for (int i = 0; i < 3; i++)
-  {
-    digitalWrite(LED_BUILTIN, HIGH); // turn the LED on (HIGH is the voltage level)
-    delay(100);                      // wait for 100 milisecond
-    digitalWrite(LED_BUILTIN, LOW);  // turn the LED off by making the voltage LOW
-    delay(100);                      // wait for 100 miliseconds
-  }
-}
-
 void SetServo(int value)
 {
   /* timer1 function
@@ -148,14 +137,13 @@ ISR(TIMER0_COMPA_vect)
   }
 }
 
-// //SERVO INTERRUPT
+//SERVO INTERRUPT
 //#TODO: having issues with timer1 interrupt implementation raising too often and preventing tune from playing 
 // ISR(TIMER1_COMPA_vect)
 // {
 //   if (moveRotor)
 //   {
 //     digitalWrite(servoPin, LOW); //pulse low if refreshing
-
 //     OCR1A = TCNT1 + servoTicks; //set timer count flag
 //     digitalWrite(servoPin, HIGH);
 //   }
@@ -168,7 +156,6 @@ ISR(TIMER0_COMPA_vect)
 //     servoTicks = 0;
 //     moveRotor = false;
 //     TCNT1 = 0;
-
 //     SREG = oldSREG; //reset timer interrupts
 //   }
 // }
@@ -178,13 +165,13 @@ void setup()
    // put your setup code here, to run once:
   cli(); //stop interrupts
 
-  //set timer0 interrupt at 768Hz
+  //set timer0 interrupt at 960Hz
   TCCR0A = 0; // set entire TCCR0A register to 0
   TCCR0B = 0; // same for TCCR0B
   TCNT0 = 0;  //initialize counter value to 0
 
   // set compare match register for 768hz increments
-  OCR0A = 80; // = (16*10^6) / (768*256) - 1 (must be <256)
+  OCR0A = 64; // = (16*10^6) / (960*256) - 1 (must be <256)
   // turn on CTC mode
   TCCR0A |= (1 << WGM01);
   // Set CS02 bit for 256 prescaler
@@ -574,7 +561,7 @@ void InterpretData() //Updates airspeed and command telemetry according to contr
     tx_packet.tx_data.drop_package = 0;
   }
 
-  if(telem_count == 0) //update every 1/6th of a second to avoid jitteryness 
+  if(telem_count > 4) //update every 1/30th of a second to avoid jitteryness 
     SetServo(int(zip_speed.v_y));
 
   ClearGroups();

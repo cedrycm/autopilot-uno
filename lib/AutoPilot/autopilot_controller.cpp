@@ -57,7 +57,7 @@ void AutoPilot::interpret_data()
     }
     else if (target_obj.delivery_distance != 0)
     {
-        statusFlag = target_obj.delivery_distance == VEHICLE_DROP_THRESHOLD ? CtrlFlags::DELIVER_PACKAGE : CtrlFlags::APPROACH_TARGET; //Approach Zip Delivery Site
+        statusFlag = target_obj.delivery_distance == VEHICLE_DROP_THRESHOLD ? CtrlFlags::DELIVER_PACKAGE : CtrlFlags::SEARCH_DELIVERY_SITE; //Approach Zip Delivery Site
 
         speed_ctrl.update_airspeed(&zip_speed, telemetry.wind_vector_x, telemetry.wind_vector_y,
                                    target_obj.delivery_theta);
